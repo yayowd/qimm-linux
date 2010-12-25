@@ -676,7 +676,6 @@ terminal_draw_contents(struct terminal *terminal)
 			      terminal->color_scheme->border.a);
 	cairo_paint(cr);
 
-	cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
 	cairo_set_font_face(cr, terminal->font_normal);
 	cairo_set_font_size(cr, 14);
 	cairo_font_extents(cr, &extents);
@@ -713,6 +712,8 @@ terminal_draw_contents(struct terminal *terminal)
 		cairo_close_path(cr);
 		cairo_fill(cr);
 	}
+
+	cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
 
 	/* paint the foreground */
 	for (row = 0; row < terminal->height; row++)

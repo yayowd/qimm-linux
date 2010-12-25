@@ -336,7 +336,7 @@ struct terminal {
 	int focused;
 	struct color_scheme *color_scheme;
 	cairo_font_extents_t extents;
-	cairo_font_face_t *font_normal, *font_bold;
+	cairo_scaled_font_t *font_normal, *font_bold;
 };
 
 /* Create default tab stops, every 8 characters */
@@ -676,8 +676,7 @@ terminal_draw_contents(struct terminal *terminal)
 	cairo_set_source_rgba(cr, color.r, color.g, color.b, color.a);
 	cairo_paint(cr);
 
-	cairo_set_font_face(cr, terminal->font_normal);
-	cairo_set_font_size(cr, 14);
+	cairo_set_scaled_font (cr, terminal->font_normal);
 	cairo_font_extents(cr, &extents);
 
 	side_margin = (rectangle.width - terminal->width * extents.max_x_advance) / 2;
@@ -737,9 +736,10 @@ terminal_draw_contents(struct terminal *terminal)
 		}
 
 		if (bold)
-			cairo_set_font_face(cr, terminal->font_bold);
+			font = terminal->font_bold;
 		else
-			cairo_set_font_face(cr, terminal->font_normal);
+			font = terminal->font_normal;
+		cairo_set_scaled_font (cr, font);
 		color = terminal->color_scheme->palette[foreground];
 		cairo_set_source_rgba(cr, color.r, color.g, color.b, color.a);
 
@@ -754,7 +754,6 @@ terminal_draw_contents(struct terminal *terminal)
 
 		g = glyphs;
 		num_glyphs = ARRAY_LENGTH(glyphs);
-		font = cairo_get_scaled_font (cr);
 		cairo_scaled_font_text_to_glyphs (font, text_x, text_y,
 						  (char *) &terminal_get_row(terminal, row)[col].byte, 4,
 						  &g, &num_glyphs,
@@ -1795,18 +1794,18 @@ terminal_create(struct display *display, int fullscreen)
 	surface = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, 0, 0);
 	cr = cairo_create(surface);
 
-	terminal->font_bold =
-		cairo_toy_font_face_create ("mono",
-					    CAIRO_FONT_SLANT_NORMAL,
-					    CAIRO_FONT_WEIGHT_BOLD);
-	cairo_font_face_reference(terminal->font_bold);
-	terminal->font_normal =
-		cairo_toy_font_face_create ("mono",
-					    CAIRO_FONT_SLANT_NORMAL,
-					    CAIRO_FONT_WEIGHT_NORMAL);
-	cairo_font_face_reference(terminal->font_normal);
-	cairo_set_font_face(cr, terminal->font_normal);
 	cairo_set_font_size(cr, 14);
+	cairo_select_font_face (cr, "mono",
+				CAIRO_FONT_SLANT_NORMAL,
+				CAIRO_FONT_WEIGHT_BOLD);
+	terminal->font_bold = cairo_get_scaled_font (cr);
+	cairo_scaled_font_reference(terminal->font_bold);
+
+	cairo_select_font_face (cr, "mono",
+				CAIRO_FONT_SLANT_NORMAL,
+				CAIRO_FONT_WEIGHT_NORMAL);
+	terminal->font_normal = cairo_get_scaled_font (cr);
+	cairo_scaled_font_reference(terminal->font_normal);
 	cairo_font_extents(cr, &terminal->extents);
 	cairo_destroy(cr);
 	cairo_surface_destroy(surface);

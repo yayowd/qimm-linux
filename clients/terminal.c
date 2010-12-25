@@ -656,12 +656,14 @@ terminal_draw_contents(struct terminal *terminal)
 	int top_margin, side_margin;
 	int row, col;
 	char attr;
-	char toShow[5] = {0, };
 	int border, foreground, background, bold, underline, tmp;
 	int text_x, text_y;
 	cairo_surface_t *surface;
 	double d;
 	struct terminal_color color;
+	int num_glyphs;
+	cairo_scaled_font_t *font;
+	cairo_glyph_t glyphs[256], *g;
 
 	window_get_child_rectangle(terminal->window, &rectangle);
 
@@ -750,8 +752,14 @@ terminal_draw_contents(struct terminal *terminal)
 		}
 		cairo_move_to(cr, text_x, text_y);
 
-		memcpy(toShow, &terminal_get_row(terminal, row)[col], 4);
-		cairo_show_text(cr, toShow);
+		g = glyphs;
+		num_glyphs = ARRAY_LENGTH(glyphs);
+		font = cairo_get_scaled_font (cr);
+		cairo_scaled_font_text_to_glyphs (font, text_x, text_y,
+						  (char *) &terminal_get_row(terminal, row)[col].byte, 4,
+						  &g, &num_glyphs,
+						  NULL, NULL, NULL);
+		cairo_show_glyphs (cr, g, num_glyphs);
 	}
 
 	if (terminal->show_cursor && !terminal->focused) {

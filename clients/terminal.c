@@ -271,7 +271,7 @@ apply_key_map(struct keyboard_map *mode, int sym, char *response)
 struct terminal_color { double r, g, b, a; };
 struct color_scheme {
 	struct terminal_color palette[16];
-	struct terminal_color border;
+	int border_color;
 	char default_attr;
 };
 
@@ -643,7 +643,7 @@ struct color_scheme DEFAULT_COLORS = {
 		{ 0.33, 1,    1,    1 }, /* high cyan */
 		{ 1,    1,    1,    1 }  /* white */
 	},
-	{ 0, 0, 0, 1 },                  /* black border */
+	0,			       /* black border */
 	0x07                           /* bg:black, fg:light gray  */
 };
 
@@ -657,7 +657,7 @@ terminal_draw_contents(struct terminal *terminal)
 	int row, col;
 	char attr;
 	char toShow[5] = {0, };
-	int foreground, background, bold, underline, tmp;
+	int border, foreground, background, bold, underline, tmp;
 	int text_x, text_y;
 	cairo_surface_t *surface;
 	double d;
@@ -669,11 +669,9 @@ terminal_draw_contents(struct terminal *terminal)
 	cr = cairo_create(surface);
 
 	cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
-	cairo_set_source_rgba(cr,
-			      terminal->color_scheme->border.r,
-			      terminal->color_scheme->border.g,
-			      terminal->color_scheme->border.b,
-			      terminal->color_scheme->border.a);
+	border = terminal->color_scheme->border_color;
+	color = terminal->color_scheme->palette[border];
+	cairo_set_source_rgba(cr, color.r, color.g, color.b, color.a);
 	cairo_paint(cr);
 
 	cairo_set_font_face(cr, terminal->font_normal);
@@ -701,6 +699,9 @@ terminal_draw_contents(struct terminal *terminal)
 			foreground = background | (foreground & ATTRMASK_INTENSITY);
 			background = tmp & ~ATTRMASK_INTENSITY;
 		}
+
+		if (background == border)
+			continue;
 
 		color = terminal->color_scheme->palette[background];
 		cairo_set_source_rgba(cr, color.r, color.g, color.b, color.a);

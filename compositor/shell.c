@@ -29,7 +29,7 @@
 #include "compositor.h"
 
 struct wl_shell {
-	struct wl_object object;
+	struct wl_resource resource;
 	struct wlsc_shell shell;
 };
 
@@ -345,8 +345,6 @@ wl_drag_set_pointer_focus(struct wl_drag *drag,
 	if (surface &&
 	    (!drag->drag_focus ||
 	     drag->drag_focus->resource.client != surface->resource.client)) {
-		wl_client_post_global(surface->resource.client,
-				      &drag->drag_offer.resource.object);
 		
 		drag->drag_offer.resource.client = surface->resource.client;
 		end = drag->types.data + drag->types.size;
@@ -488,6 +486,14 @@ static const struct wl_grab_interface drag_grab_interface = {
 };
 
 static void
+bind_drag_offer(struct wl_client *client,
+		void *data, uint32_t version, uint32_t id)
+{
+	wl_client_add_object(client, &wl_drag_offer_interface,
+			     &drag_offer_interface, id, data);
+}
+
+static void
 drag_activate(struct wl_client *client,
 	      struct wl_resource *resource,
 	      struct wl_surface *surface,
@@ -506,12 +512,8 @@ drag_activate(struct wl_client *client,
 
 	drag->source = surface;
 
-	drag->drag_offer.resource.object.interface = &wl_drag_offer_interface;
-	drag->drag_offer.resource.object.implementation =
-		(void (**)(void)) &drag_offer_interface;
-
-	wl_display_add_global(display,
-			      &drag->drag_offer.resource.object, NULL);
+	wl_display_add_global(display, &wl_drag_offer_interface,
+			      drag, bind_drag_offer);
 
 	target = pick_surface(device, &sx, &sy);
 	wl_input_device_set_pointer_focus(device, NULL, time, 0, 0, 0, 0);
@@ -585,8 +587,6 @@ wlsc_selection_set_focus(struct wlsc_shell *shell,
 				     NULL);
 
 	if (surface) {
-		wl_client_post_global(surface->resource.client,
-				      &selection->selection_offer.resource.object);
 
 		selection->selection_offer.resource.client = surface->resource.client;
 		end = selection->types.data + selection->types.size;
@@ -644,6 +644,14 @@ selection_offer(struct wl_client *client,
 }
 
 static void
+bind_selection_offer(struct wl_client *client,
+		     void *data, uint32_t version, uint32_t id)
+{
+	wl_client_add_object(client, &wl_selection_offer_interface,
+			     &selection_offer_interface, id, data);
+}
+
+static void
 selection_activate(struct wl_client *client,
 		   struct wl_resource *resource,
 		   struct wl_input_device *device, uint32_t time)
@@ -656,14 +664,8 @@ selection_activate(struct wl_client *client,
 
 	selection->input_device = device;
 
-	selection->selection_offer.resource.object.interface =
-		&wl_selection_offer_interface;
-	selection->selection_offer.resource.object.implementation =
-		(void (**)(void)) &selection_offer_interface;
-
-	wl_display_add_global(display,
-			      &selection->selection_offer.resource.object,
-			      NULL);
+	wl_display_add_global(display, &wl_selection_offer_interface,
+			      selection, bind_selection_offer);
 
 	if (wd->selection) {
 		wl_resource_post_event(&wd->selection->resource,
@@ -812,6 +814,13 @@ attach(struct wlsc_shell *shell, struct wlsc_surface *es)
 	}
 }
 
+static void
+bind_shell(struct wl_client *client, void *data, uint32_t version, uint32_t id)
+{
+	wl_client_add_object(client, &wl_shell_interface,
+			     &shell_interface, id, data);
+}
+
 int
 shell_init(struct wlsc_compositor *ec);
 
@@ -828,9 +837,8 @@ shell_init(struct wlsc_compositor *ec)
 	shell->shell.attach = attach;
 	shell->shell.set_selection_focus = wlsc_selection_set_focus;
 
-	shell->object.interface = &wl_shell_interface;
-	shell->object.implementation = (void (**)(void)) &shell_interface;
-	if (wl_display_add_global(ec->wl_display, &shell->object, NULL))
+	if (!wl_display_add_global(ec->wl_display,
+				   &wl_shell_interface, shell, bind_shell))
 		return -1;
 
 	wlsc_compositor_add_binding(ec, 0, BTN_LEFT, MODIFIER_SUPER,

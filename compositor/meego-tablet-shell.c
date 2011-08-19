@@ -622,20 +622,17 @@ meego_tablet_shell_set_selection_focus(struct wlsc_shell *shell,
 }
 
 static void
-bind_shell(struct wl_client *client,
-	   struct wl_object *global, uint32_t version, uint32_t id)
+bind_shell(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 {
-	struct meego_tablet_shell *shell =
-		container_of(global,
-			     struct meego_tablet_shell, resource.object);
+	struct meego_tablet_shell *shell = data;
 
 	if (shell->client != client)
 		/* Throw an error or just let the client fail when it
 		 * tries to access the object?. */
 		return;
 
-	shell->resource.client = client;
-	shell->resource.object.id = id;
+	wl_client_add_object(client, &meego_tablet_shell_interface,
+			     &tablet_shell_interface, id, shell);
 }
 
 void
@@ -654,13 +651,10 @@ shell_init(struct wlsc_compositor *compositor)
 	memset(shell, 0, sizeof *shell);
 	shell->compositor = compositor;
 
-	shell->resource.object.interface = &meego_tablet_shell_interface;
-	shell->resource.object.implementation =
-		(void (**)(void)) &tablet_shell_interface;
-
 	/* FIXME: This will make the object available to all clients. */
 	wl_display_add_global(compositor->wl_display,
-			      &shell->resource.object, bind_shell);
+			      &meego_tablet_shell_interface,
+			      shell, bind_shell);
 
 	loop = wl_display_get_event_loop(compositor->wl_display);
 	shell->long_press_source =

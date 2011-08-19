@@ -1625,18 +1625,22 @@ const static struct wl_input_device_interface input_device_interface = {
 	input_device_attach,
 };
 
+static void
+bind_input_device(struct wl_client *client,
+		  void *data, uint32_t version, uint32_t id)
+{
+	wl_client_add_object(client, &wl_input_device_interface,
+			     &input_device_interface, id, data);
+}
+
 WL_EXPORT void
 wlsc_input_device_init(struct wlsc_input_device *device,
 		       struct wlsc_compositor *ec)
 {
 	wl_input_device_init(&device->input_device, &ec->compositor);
 
-	device->input_device.resource.object.interface = &wl_input_device_interface;
-	device->input_device.resource.object.implementation =
-		(void (**)(void)) &input_device_interface;
-	device->input_device.resource.data = device;
-	wl_display_add_global(ec->wl_display,
-			      &device->input_device.resource.object, NULL);
+	wl_display_add_global(ec->wl_display, &wl_input_device_interface,
+			      device, bind_input_device);
 
 	device->sprite = wlsc_surface_create(ec,
 					     device->input_device.x,
@@ -1655,16 +1659,17 @@ wlsc_input_device_init(struct wlsc_input_device *device,
 }
 
 static void
-wlsc_output_post_geometry(struct wl_client *client, struct wl_object *global,
-			  uint32_t version, uint32_t id)
+bind_output(struct wl_client *client,
+	    void *data, uint32_t version, uint32_t id)
 {
-	struct wlsc_output *output =
-		container_of(global, struct wlsc_output, resource.object);
+	struct wlsc_output *output = data;
 	struct wlsc_mode *mode;
+	struct wl_resource *resource;
 
-	output->resource.client = client;
-	output->resource.object.id = id;
-	wl_resource_post_event(&output->resource,
+	resource = wl_client_add_object(client, &wl_output_interface,
+					NULL, id, output);
+
+	wl_resource_post_event(resource,
 			       WL_OUTPUT_GEOMETRY,
 			       output->x,
 			       output->y,
@@ -1674,7 +1679,7 @@ wlsc_output_post_geometry(struct wl_client *client, struct wl_object *global,
 			       output->make, output->model);
 
 	wl_list_for_each (mode, &output->mode_list, link) {
-		wl_resource_post_event(&output->resource,
+		wl_resource_post_event(resource,
 				       WL_OUTPUT_MODE,
 				       mode->flags,
 				       mode->width,
@@ -1859,9 +1864,8 @@ wlsc_output_init(struct wlsc_output *output, struct wlsc_compositor *c,
 	wl_list_init(&output->scanout_buffer_destroy_listener.link);
 	wl_list_init(&output->frame_callback_list);
 
-	output->resource.object.interface = &wl_output_interface;
-	wl_display_add_global(c->wl_display, &output->resource.object,
-			      wlsc_output_post_geometry);
+	wl_display_add_global(c->wl_display, &wl_output_interface,
+			      output, bind_output);
 }
 
 static void

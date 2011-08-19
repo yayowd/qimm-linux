@@ -50,6 +50,14 @@ struct screenshooter_interface screenshooter_implementation = {
 	screenshooter_shoot
 };
 
+static void
+bind_shooter(struct wl_client *client,
+	     void *data, uint32_t version, uint32_t id)
+{
+	wl_client_add_object(client, &screenshooter_interface,
+			     &screenshooter_implementation, id, data);
+}
+
 void
 screenshooter_create(struct wlsc_compositor *ec)
 {
@@ -59,10 +67,8 @@ screenshooter_create(struct wlsc_compositor *ec)
 	if (shooter == NULL)
 		return;
 
-	shooter->base.interface = &screenshooter_interface;
-	shooter->base.implementation =
-		(void(**)(void)) &screenshooter_implementation;
 	shooter->ec = ec;
 
-	wl_display_add_global(ec->wl_display, &shooter->base, NULL);
+	wl_display_add_global(ec->wl_display, &screenshooter_interface,
+			      shooter, bind_shooter);
 };

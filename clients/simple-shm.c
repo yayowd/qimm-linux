@@ -163,20 +163,20 @@ static const struct wl_compositor_listener compositor_listener = {
 };
 
 static void
-display_handle_global(struct wl_display *display, uint32_t id,
+display_handle_global(struct wl_display *display, uint32_t name,
 		      const char *interface, uint32_t version, void *data)
 {
 	struct display *d = data;
 
 	if (strcmp(interface, "wl_compositor") == 0) {
-		d->compositor =
-			wl_display_bind(display, id, &wl_compositor_interface);
+		d->compositor = wl_display_bind(display, name,
+						&wl_compositor_interface);
 		wl_compositor_add_listener(d->compositor,
 					   &compositor_listener, d);
 	} else if (strcmp(interface, "wl_shell") == 0) {
-		d->shell = wl_display_bind(display, id, &wl_shell_interface);
+		d->shell = wl_display_bind(display, name, &wl_shell_interface);
 	} else if (strcmp(interface, "wl_shm") == 0) {
-		d->shm = wl_display_bind(display, id, &wl_shm_interface);
+		d->shm = wl_display_bind(display, name, &wl_shm_interface);
 	}
 }
 
@@ -198,6 +198,7 @@ create_display(void)
 
 	display = malloc(sizeof *display);
 	display->display = wl_display_connect(NULL);
+	display->xrgb_visual = NULL;
 	assert(display->display);
 
 	wl_display_add_global_listener(display->display,
@@ -206,7 +207,7 @@ create_display(void)
 
 	wl_display_get_fd(display->display, event_mask_update, display);
 	
-	while (display->xrgb_visual)
+	while (!display->xrgb_visual)
 		wl_display_roundtrip(display->display);
 
 	return display;

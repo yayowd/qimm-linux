@@ -981,7 +981,7 @@ wlsc_compositor_fade(struct wlsc_compositor *compositor, float tint)
 }
 
 static void
-surface_destroy(struct wl_client *client, struct wl_resource *resource)
+surface_destroy(struct wl_resource *resource, struct wl_surface *surface)
 {
 	wl_resource_destroy(resource, wlsc_compositor_get_time());
 }
@@ -1012,11 +1012,12 @@ wlsc_surface_assign_output(struct wlsc_surface *es)
 }
 
 static void
-surface_attach(struct wl_client *client,
-	       struct wl_resource *resource, struct wl_buffer *buffer,
+surface_attach(struct wl_resource *resource,
+	       struct wl_surface *surface, struct wl_buffer *buffer,
 	       int32_t x, int32_t y)
 {
-	struct wlsc_surface *es = resource->data;
+	struct wlsc_surface *es =
+		container_of(surface, struct wlsc_surface, surface);
 
 	buffer->busy_count++;
 	wlsc_buffer_post_release(es->buffer);
@@ -1041,11 +1042,12 @@ surface_attach(struct wl_client *client,
 }
 
 static void
-surface_damage(struct wl_client *client,
-	       struct wl_resource *resource,
+surface_damage(struct wl_resource *resource,
+	       struct wl_surface *surface,
 	       int32_t x, int32_t y, int32_t width, int32_t height)
 {
-	struct wlsc_surface *es = resource->data;
+	struct wlsc_surface *es =
+		container_of(surface, struct wlsc_surface, surface);
 
 	wlsc_surface_damage_rectangle(es, x, y, width, height);
 }
@@ -1060,26 +1062,27 @@ destroy_frame_callback(struct wl_resource *resource)
 }
 
 static void
-surface_frame(struct wl_client *client,
-	      struct wl_resource *resource, uint32_t callback)
+surface_frame(struct wl_resource *resource,
+	      struct wl_surface *surface, uint32_t callback)
 {
 	struct wlsc_frame_callback *cb;
-	struct wlsc_surface *es = resource->data;
+	struct wlsc_surface *es =
+		container_of(surface, struct wlsc_surface, surface);
 
 	cb = malloc(sizeof *cb);
 	if (cb == NULL) {
-		wl_client_post_no_memory(client);
+		wl_client_post_no_memory(resource->client);
 		return;
 	}
 		
 	cb->resource.object.interface = &wl_callback_interface;
 	cb->resource.object.id = callback;
 	cb->resource.destroy = destroy_frame_callback;
-	cb->resource.client = client;
+	cb->resource.client = resource->client;
 	cb->resource.data = cb;
 	wl_list_insert(es->output->frame_callback_list.prev, &cb->link);
 
-	wl_client_add_resource(client, &cb->resource);
+	wl_client_add_resource(resource->client, &cb->resource);
 }
 
 const static struct wl_surface_interface surface_interface = {
@@ -1136,15 +1139,16 @@ wlsc_input_device_set_pointer_image(struct wlsc_input_device *device,
 }
 
 static void
-compositor_create_surface(struct wl_client *client,
-			  struct wl_resource *resource, uint32_t id)
+compositor_create_surface(struct wl_resource *resource,
+			  struct wl_compositor *compositor, uint32_t id)
 {
-	struct wlsc_compositor *ec = resource->data;
+	struct wlsc_compositor *ec =
+		container_of(compositor, struct wlsc_compositor, compositor);
 	struct wlsc_surface *surface;
 
 	surface = wlsc_surface_create(ec, 0, 0, 0, 0);
 	if (surface == NULL) {
-		wl_client_post_no_memory(client);
+		wl_client_post_no_memory(resource->client);
 		return;
 	}
 
@@ -1156,7 +1160,7 @@ compositor_create_surface(struct wl_client *client,
 		(void (**)(void)) &surface_interface;
 	surface->surface.resource.data = surface;
 
-	wl_client_add_resource(client, &surface->surface.resource);
+	wl_client_add_resource(resource->client, &surface->surface.resource);
 }
 
 const static struct wl_compositor_interface compositor_interface = {
@@ -1598,18 +1602,20 @@ notify_keyboard_focus(struct wl_input_device *device,
 
 
 static void
-input_device_attach(struct wl_client *client,
-		    struct wl_resource *resource,
+input_device_attach(struct wl_resource *resource,
+		    struct wl_input_device *input_device,
 		    uint32_t time,
 		    struct wl_buffer *buffer, int32_t x, int32_t y)
 {
-	struct wlsc_input_device *device = resource->data;
+	struct wlsc_input_device *device =
+		container_of(input_device,
+			     struct wlsc_input_device, input_device);
 
-	if (time < device->input_device.pointer_focus_time)
+	if (time < input_device->pointer_focus_time)
 		return;
-	if (device->input_device.pointer_focus == NULL)
+	if (input_device->pointer_focus == NULL)
 		return;
-	if (device->input_device.pointer_focus->resource.client != client)
+	if (input_device->pointer_focus->resource.client != resource->client)
 		return;
 
 	if (buffer == NULL) {

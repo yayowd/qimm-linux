@@ -249,11 +249,10 @@ handle_lockscreen_surface_destroy(struct wl_listener *listener,
 }
 
 static void
-tablet_shell_set_lockscreen(struct wl_client *client,
-			    struct wl_resource *resource,
+tablet_shell_set_lockscreen(struct wl_resource *resource,
+			    struct meego_tablet_shell *shell,
 			    struct wl_surface *surface)
 {
-	struct meego_tablet_shell *shell = resource->data;
 	struct wlsc_surface *es = (struct wlsc_surface *) surface;
 	struct wlsc_input_device *device =
 		(struct wlsc_input_device *) shell->compositor->input_device;
@@ -282,11 +281,10 @@ handle_switcher_surface_destroy(struct wl_listener *listener,
 }
 
 static void
-tablet_shell_set_switcher(struct wl_client *client,
-			  struct wl_resource *resource,
+tablet_shell_set_switcher(struct wl_resource *resource,
+			  struct meego_tablet_shell *shell,
 			  struct wl_surface *surface)
 {
-	struct meego_tablet_shell *shell = resource->data;
 	struct wlsc_input_device *device =
 		(struct wlsc_input_device *) shell->compositor->input_device;
 	struct wlsc_surface *es = (struct wlsc_surface *) surface;
@@ -307,11 +305,10 @@ tablet_shell_set_switcher(struct wl_client *client,
 }
 
 static void
-tablet_shell_set_homescreen(struct wl_client *client,
-			    struct wl_resource *resource,
+tablet_shell_set_homescreen(struct wl_resource *resource,
+			    struct meego_tablet_shell *shell,
 			    struct wl_surface *surface)
 {
-	struct meego_tablet_shell *shell = resource->data;
 	struct wlsc_input_device *device =
 		(struct wlsc_input_device *) shell->compositor->input_device;
 
@@ -368,22 +365,18 @@ meego_tablet_shell_switch_to(struct meego_tablet_shell *shell,
 }
 
 static void
-tablet_shell_show_grid(struct wl_client *client,
-		       struct wl_resource *resource,
+tablet_shell_show_grid(struct wl_resource *resource,
+		       struct meego_tablet_shell *shell,
 		       struct wl_surface *surface)
 {
-	struct meego_tablet_shell *shell = resource->data;
-
 	meego_tablet_shell_switch_to(shell, (struct wlsc_surface *) surface);
 }
 
 static void
-tablet_shell_show_panels(struct wl_client *client,
-			 struct wl_resource *resource,
+tablet_shell_show_panels(struct wl_resource *resource,
+			 struct meego_tablet_shell *shell,
 			 struct wl_surface *surface)
 {
-	struct meego_tablet_shell *shell = resource->data;
-
 	meego_tablet_shell_switch_to(shell, (struct wlsc_surface *) surface);
 }
 
@@ -398,22 +391,23 @@ destroy_tablet_client(struct wl_resource *resource)
 }
 
 static void
-tablet_client_destroy(struct wl_client *client, struct wl_resource *resource)
+tablet_client_destroy(struct wl_resource *resource,
+		      struct meego_tablet_client *client)
 {
 	wl_resource_destroy(resource, wlsc_compositor_get_time());
 }
 
 static void
-tablet_client_activate(struct wl_client *client, struct wl_resource *resource)
+tablet_client_activate(struct wl_resource *resource,
+		       struct meego_tablet_client *client)
 {
-	struct meego_tablet_client *tablet_client = resource->data;
-	struct meego_tablet_shell *shell = tablet_client->shell;
+	struct meego_tablet_shell *shell = client->shell;
 
-	shell->current_client = tablet_client;
-	if (!tablet_client->surface)
+	shell->current_client = client;
+	if (!client->surface)
 		return;
 
-	meego_tablet_shell_switch_to(shell, tablet_client->surface);
+	meego_tablet_shell_switch_to(shell, client->surface);
 }
 
 static const struct meego_tablet_client_interface tablet_client_interface = {
@@ -422,17 +416,16 @@ static const struct meego_tablet_client_interface tablet_client_interface = {
 };
 
 static void
-tablet_shell_create_client(struct wl_client *client,
-			   struct wl_resource *resource,
+tablet_shell_create_client(struct wl_resource *resource,
+			   struct meego_tablet_shell *shell,
 			   uint32_t id, const char *name, int fd)
 {
-	struct meego_tablet_shell *shell = resource->data;
 	struct wlsc_compositor *compositor = shell->compositor;
 	struct meego_tablet_client *tablet_client;
 
 	tablet_client = malloc(sizeof *tablet_client);
 	if (tablet_client == NULL) {
-		wl_client_post_no_memory(client);
+		wl_client_post_no_memory(resource->client);
 		return;
 	}
 
@@ -447,7 +440,7 @@ tablet_shell_create_client(struct wl_client *client,
 	tablet_client->resource.object.implementation =
 		(void (**)(void)) &tablet_client_interface;
 
-	wl_client_add_resource(client, &tablet_client->resource);
+	wl_client_add_resource(resource->client, &tablet_client->resource);
 	tablet_client->surface = NULL;
 	shell->current_client = tablet_client;
 

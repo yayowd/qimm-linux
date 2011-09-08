@@ -815,6 +815,9 @@ wlsc_xserver_destroy(struct wlsc_compositor *compositor)
 {
 	struct wlsc_xserver *wxs = compositor->wxs;
 
+	if (!wxs)
+		return;
+
 	if (wxs->loop)
 		wlsc_xserver_shutdown(wxs);
 

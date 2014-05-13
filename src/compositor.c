@@ -53,10 +53,13 @@
 #endif
 
 #include "compositor.h"
-#include "subsurface-server-protocol.h"
 #include "../shared/os-compatibility.h"
 #include "git-version.h"
 #include "version.h"
+
+#ifndef WL_SUBCOMPOSITOR_ERROR_ENUM
+#include "subsurface-server-protocol.h"
+#endif
 
 static struct wl_list child_process_list;
 static struct weston_compositor *segv_compositor;

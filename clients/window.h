@@ -28,7 +28,10 @@
 #include <cairo.h>
 #include "../shared/config-parser.h"
 #include "../shared/zalloc.h"
+
+#ifndef WL_SUBCOMPOSITOR_ERROR_ENUM
 #include "subsurface-client-protocol.h"
+#endif
 
 #define ARRAY_LENGTH(a) (sizeof (a) / sizeof (a)[0])
 

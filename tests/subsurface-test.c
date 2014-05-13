@@ -23,8 +23,11 @@
 #include <string.h>
 
 #include "weston-test-client-helper.h"
-#include "subsurface-client-protocol.h"
 #include <stdio.h>
+
+#ifndef WL_SUBCOMPOSITOR_ERROR_ENUM
+#include "subsurface-client-protocol.h"
+#endif
 
 #define NUM_SUBSURFACES 3
 

@@ -129,7 +129,8 @@ read_groups(int *ngroups)
 	n = getgroups(0, NULL);
 
 	if (n < 0) {
-		fprintf(stderr, "Unable to retrieve groups: %m\n");
+		fprintf(stderr, "Unable to retrieve groups: %s\n",
+			strerror(errno));
 		return NULL;
 	}
 
@@ -138,7 +139,8 @@ read_groups(int *ngroups)
 		return NULL;
 
 	if (getgroups(n, groups) < 0) {
-		fprintf(stderr, "Unable to retrieve groups: %m\n");
+		fprintf(stderr, "Unable to retrieve groups: %s\n",
+			strerror(errno));
 		free(groups);
 		return NULL;
 	}
@@ -320,8 +322,8 @@ handle_open(struct weston_launch *wl, struct msghdr *msg, ssize_t len)
 
 	fd = open(message->path, message->flags);
 	if (fd < 0) {
-		fprintf(stderr, "Error opening device %s: %m\n",
-			message->path);
+		fprintf(stderr, "Error opening device %s: %s\n",
+			message->path, strerror(errno));
 		goto err0;
 	}
 
@@ -434,10 +436,12 @@ quit(struct weston_launch *wl, int status)
 
 	if (ioctl(wl->tty, KDSKBMUTE, 0) &&
 	    ioctl(wl->tty, KDSKBMODE, wl->kb_mode))
-		fprintf(stderr, "failed to restore keyboard mode: %m\n");
+		fprintf(stderr, "failed to restore keyboard mode: %s\n",
+			strerror(errno));
 
 	if (ioctl(wl->tty, KDSETMODE, KD_TEXT))
-		fprintf(stderr, "failed to set KD_TEXT mode on tty: %m\n");
+		fprintf(stderr, "failed to set KD_TEXT mode on tty: %s\n",
+			strerror(errno));
 
 	/* We have to drop master before we switch the VT back in
 	 * VT_AUTO, so we don't risk switching to a VT with another

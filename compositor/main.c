@@ -2974,6 +2974,10 @@ int main(int argc, char *argv[])
 	verify_xdg_runtime_dir();
 
 	display = wl_display_create();
+	if (display == NULL) {
+		weston_log("fatal: failed to create display\n");
+		goto out_display;
+	}
 
 	loop = wl_display_get_event_loop(display);
 	signals[0] = wl_event_loop_add_signal(loop, SIGTERM, on_term_signal,
@@ -3169,6 +3173,7 @@ out_signals:
 
 	wl_display_destroy(display);
 
+out_display:
 	weston_log_file_close();
 
 	if (config)

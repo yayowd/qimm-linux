@@ -1,0 +1,19 @@
+name: dashboard
+themes:
+  - name: orange
+    foreground: '#994455'
+    background: '#aacc99'
+types:
+  - name: cpu
+    summary: show cpu information in real time
+  - name: network
+    summary: show network information in real time
+  - name: memory
+    summary: show memory information in real time
+  - name: disk
+    summary: show disk information in real time
+  - name: date
+    summary: show date information in real time
+layouts:
+  - { name: cpu       , x: -1   , y: -1   , w: 300    , h: 300 }
+  - { name: network   , x: -1   , y: -1   , w: 300    , h: 300 }

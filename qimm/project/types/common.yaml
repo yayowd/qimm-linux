@@ -1,0 +1,13 @@
+name: common
+themes:
+  - name: default
+    foreground: '#334455'
+    background: '#aacc99'
+types:
+  - name: background
+    summary: show background for each project
+  - name: head
+    summary: show project information in top of screen
+layouts:
+  - { name: background  , x: 0    , y: 0    , w: -1   , h: -1 }
+  - { name: head        , x: 0    , y: 0    , w: -1   , h: 200 }

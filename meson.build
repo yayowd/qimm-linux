@@ -179,6 +179,11 @@ subdir('remoting')
 subdir('pipewire')
 subdir('clients')
 subdir('wcap')
+
+# --add qimm module to weston
+#   must before tests module to update env_modmap in test config
+subdir('qimm')
+
 subdir('tests')
 subdir('data')
 subdir('man')

@@ -88,9 +88,9 @@ center_on_output(struct weston_view *view, struct weston_output *output) {
 static void
 qimm_view_set_position(struct weston_view *view,
         struct qimm_layout *layout, struct qimm_shell *shell) {
-    if (layout)
+    if (layout) {
         weston_view_set_position(view, layout->x, layout->y);
-    else { /* freedom views */
+    } else { /* freedom views */
         if (shell->output_focus)
             center_on_output(view, shell->output_focus->output);
         else
@@ -99,23 +99,18 @@ qimm_view_set_position(struct weston_view *view,
 }
 
 static void
-qimm_surface_update_layer(struct qimm_surface *qimm_surface,
-        struct qimm_shell *shell) {
-    struct qimm_project *project = qimm_shell_get_current_project(shell);
-    if (!project) {
+qimm_surface_update_layer(struct qimm_surface *qimm_surface) {
+    if (!qimm_surface->layout)
         return;
-    }
-    /*
-     * the first layout is for background
-     */
+    struct qimm_project *project = qimm_surface->layout->project;
+    /* the first layout is for background */
     struct weston_layer_entry *new_layer_link;
     if (project->layouts.next == &qimm_surface->layout->link)
         new_layer_link = &project->output->shell->background_layer.view_list;
     else
         new_layer_link = &project->layer.view_list;
-    if (new_layer_link == &qimm_surface->view->layer_link) {
+    if (new_layer_link == &qimm_surface->view->layer_link)
         return;
-    }
 
     weston_view_geometry_dirty(qimm_surface->view);
     weston_layer_entry_remove(&qimm_surface->view->layer_link);
@@ -193,7 +188,7 @@ map(struct qimm_shell *shell, struct qimm_surface *qimm_surface,
         int32_t sx, int32_t sy) {
     qimm_view_set_position(qimm_surface->view, qimm_surface->layout, shell);
 
-    qimm_surface_update_layer(qimm_surface, shell);
+    qimm_surface_update_layer(qimm_surface);
 
     weston_view_update_transform(qimm_surface->view);
     qimm_surface->view->is_mapped = true;
@@ -233,10 +228,10 @@ desktop_surface_added(struct weston_desktop_surface *desktop_surface,
 
     weston_surface_set_label_func(surface, qimm_surface_get_label);
 
+    wl_signal_init(&qimm_surface->destroy_signal);
+
     qimm_surface->desktop_surface = desktop_surface;
     qimm_surface->view = view;
-
-    wl_signal_init(&qimm_surface->destroy_signal);
 
     /*
      * initialize list as well as link. The latter allows to use
@@ -249,6 +244,10 @@ desktop_surface_added(struct weston_desktop_surface *desktop_surface,
     if (qimm_surface->layout)
         weston_desktop_surface_set_size(desktop_surface,
                 qimm_surface->layout->w, qimm_surface->layout->h);
+    else
+        qimm_log("freedom surface %p %s",
+                desktop_surface,
+                weston_desktop_surface_get_title(desktop_surface));
 
     weston_desktop_surface_set_user_data(desktop_surface, qimm_surface);
     weston_desktop_surface_set_activated(desktop_surface, false);

@@ -54,9 +54,9 @@ version(void) {
 int
 main(int argc, char **argv) {
     char *args[] = {argv[0],
-                   // "--config=/home/wayland/weston-2.ini",
+                    // "--config=/home/wayland/.config/weston-test.ini",
                     "--no-config",
-                   // "--wait-for-debugger",
+                    // "--wait-for-debugger",
                     "--shell=qimm-shell.so"};
 
     const struct option long_options[] = {

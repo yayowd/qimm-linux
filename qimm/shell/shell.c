@@ -32,7 +32,7 @@ qimm_shell_get_current_project(struct qimm_shell *shell) {
 }
 
 static void
-shell_destroy(struct wl_listener *listener, void *data) {
+qimm_shell_destroy(struct wl_listener *listener, void *data) {
     struct qimm_shell *shell =
             container_of(listener, struct qimm_shell, destroy_listener);
 
@@ -63,7 +63,7 @@ wet_shell_init(struct weston_compositor *ec, int *argc, char *argv[]) {
 
     // handle destroy event
     if (!weston_compositor_add_destroy_listener_once(ec,
-            &shell->destroy_listener, shell_destroy)) {
+            &shell->destroy_listener, qimm_shell_destroy)) {
         free(shell);
         return -1;
     }
@@ -88,6 +88,6 @@ wet_shell_init(struct weston_compositor *ec, int *argc, char *argv[]) {
 
 out:
     qimm_log("qimm shell failed to load, exiting...");
-    shell_destroy(&shell->destroy_listener, NULL);
+    qimm_shell_destroy(&shell->destroy_listener, NULL);
     return -1;
 }

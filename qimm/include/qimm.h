@@ -149,12 +149,17 @@ struct qimm_project_config_layout {
 struct qimm_layout {
     struct wl_list link; /* qimm_project::layouts */
 
+    struct qimm_project *project;
     struct qimm_project_config_layout *config_layout;
 
     /* location in runtime, update if necessray */
     int32_t x, y;
     int32_t w, h;
 
+    /*
+     * filled by client process started
+     * used to find which layout for client surface
+     */
     struct qimm_client *client;
 };
 
@@ -168,6 +173,10 @@ struct qimm_client {
 
     struct weston_surface *surface;
 
+    /*
+     * filled by client destroied
+     * used to clear client field in layout
+     */
     struct qimm_layout *layout;
 };
 /*
@@ -281,6 +290,11 @@ int
 qimm_layout_project_init(struct qimm_project *project);
 void
 qimm_layout_project_clear(struct qimm_project *project);
+/*
+ * find layout for wayland client sureface
+ * NOTE: find in all output and all project in shell
+ *       for project preload reseaon
+ */
 struct qimm_layout *
 qimm_layout_find_by_client(struct qimm_shell *shell, struct wl_client *client);
 int

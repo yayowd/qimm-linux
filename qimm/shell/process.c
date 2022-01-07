@@ -17,8 +17,8 @@
  */
 #include "qimm.h"
 
-/** NOTE:
- *
+/*
+ * NOTE:
  * copy from compositor/main.c: child_client_exec
  * support command line agrs
  */
@@ -61,8 +61,8 @@ final:
     free(cmd);
 }
 
-/** NOTE:
- *
+/*
+ * NOTE:
  * copy from compositor/main.c: weston_client_launch
  * support command line agrs and use vfork to wait child process to exec or exit
  */

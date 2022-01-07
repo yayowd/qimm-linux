@@ -18,7 +18,7 @@
 #include "qimm.h"
 
 static struct qimm_project_config_type *
-qimm_layout_project_find_type_in(struct wl_list *types, const char *name) {
+qimm_layout_types_find_type(struct wl_list *types, const char *name) {
     struct qimm_project_config_type *type;
     wl_list_for_each(type, types, link) {
         if (!strcmp(type->name, name))
@@ -32,11 +32,11 @@ qimm_layout_project_find_type(struct qimm_project *project, const char *name) {
     struct qimm_project_config_type *type = NULL;
 
     if (project->config)
-        type = qimm_layout_project_find_type_in(&project->config->types, name);
+        type = qimm_layout_types_find_type(&project->config->types, name);
 
     if (!type && project->shell->config) {
         struct wl_list *types = &project->shell->config->types;
-        type = qimm_layout_project_find_type_in(types, name);
+        type = qimm_layout_types_find_type(types, name);
     }
 
     return type;
@@ -61,6 +61,7 @@ qimm_layout_project_init(struct qimm_project *project) {
             }
 
             layout = zalloc(sizeof *layout);
+            layout->project = project;
             layout->config_layout = config_layout;
             wl_list_insert(project->layouts.prev, &layout->link);
         }
@@ -75,6 +76,7 @@ qimm_layout_project_init(struct qimm_project *project) {
         }
 
         layout = zalloc(sizeof *layout);
+        layout->project = project;
         layout->config_layout = config_layout;
         wl_list_insert(project->layouts.prev, &layout->link);
     }
@@ -97,13 +99,16 @@ qimm_layout_project_clear(struct qimm_project *project) {
 
 struct qimm_layout *
 qimm_layout_find_by_client(struct qimm_shell *shell, struct wl_client *client) {
-    struct qimm_project *project = qimm_shell_get_current_project(shell);
-    if (!project)
-        return NULL;
-    struct qimm_layout *layout;
-    wl_list_for_each(layout, &project->layouts, link) {
-        if (layout->client->client == client)
-            return layout;
+    struct qimm_output *output;
+    wl_list_for_each(output, &shell->outputs, link) {
+        struct qimm_project *project;
+        wl_list_for_each(project, &output->projects, link) {
+            struct qimm_layout *layout;
+            wl_list_for_each(layout, &project->layouts, link) {
+                if (layout->client->client == client)
+                    return layout;
+            }
+        }
     }
     return NULL;
 }
@@ -117,6 +122,8 @@ qimm_layout_project_update(struct qimm_project *project) {
     }
 
     if (project->output_layouted != output) {
+        int32_t x = output->output->x;
+        int32_t y = output->output->y;
         int32_t w = output->output->width;
         int32_t h = output->output->height;
 
@@ -154,6 +161,10 @@ qimm_layout_project_update(struct qimm_project *project) {
                 dy = layout->y;
                 dy2 = MAX(dy2, layout->y + layout->h);
             }
+
+            /* postion layout to output */
+            layout->x += x;
+            layout->y += y;
         }
 
         project->output_layouted = output;

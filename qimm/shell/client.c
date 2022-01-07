@@ -161,13 +161,15 @@ qimm_client_start_layout_func(struct qimm_shell *shell,
 }
 
 static void
-qimm_client_start_layout(struct qimm_shell *shell, struct qimm_layout *layout) {
+qimm_client_start_layout(struct qimm_project *project, struct qimm_layout *layout) {
     struct qimm_client_startup *startup = zalloc(sizeof *startup);
-    startup->shell = shell;
-    startup->agrv = zalloc(4 * sizeof(char *));
-    startup->agrv[0] = strdup(shell->client_path);
-    startup->agrv[1] = strdup("-a");
-    startup->agrv[2] = strdup(layout->config_layout->name);
+    startup->shell = project->shell;
+    startup->agrv = zalloc(6 * sizeof(char *));
+    startup->agrv[0] = strdup(project->shell->client_path);
+    startup->agrv[1] = strdup("-p");
+    startup->agrv[2] = strdup(project->name);
+    startup->agrv[3] = strdup("-a");
+    startup->agrv[4] = strdup(layout->config_layout->name);
     startup->func = qimm_client_start_layout_func;
     startup->data = layout;
     qimm_client_start(startup);
@@ -184,6 +186,6 @@ qimm_client_project_start(struct qimm_project *project) {
     struct qimm_layout *layout;
     wl_list_for_each(layout, &project->layouts, link) {
         if (!layout->client)
-            qimm_client_start_layout(output->shell, layout);
+            qimm_client_start_layout(project, layout);
     }
 }

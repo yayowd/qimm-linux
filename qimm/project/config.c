@@ -53,10 +53,10 @@ qimm_config_project_layout_free(void *obj) {
 
 static void
 qimm_config_project_layout_print(struct qimm_project_config_layout *layout) {
-    printf("\tqimm_project_config_layout:\n"
-           "\t\tname: %s\n"
-           "\t\tx: %5d,  y: %5d\n"
-           "\t\tw: %5d,  h: %5d\n",
+    fprintf(stderr, "\tqimm_project_config_layout:\n"
+                    "\t\tname: %s\n"
+                    "\t\tx: %5d,  y: %5d\n"
+                    "\t\tw: %5d,  h: %5d\n",
             layout->name, layout->x, layout->y, layout->w, layout->h);
 }
 
@@ -105,9 +105,9 @@ qimm_config_project_type_free(void *obj) {
 
 static void
 qimm_config_project_type_print(struct qimm_project_config_type *type) {
-    printf("\tqimm_project_config_type:\n"
-           "\t\tname: %s\n"
-           "\t\tsummary: %s\n",
+    fprintf(stderr, "\tqimm_project_config_type:\n"
+                    "\t\tname: %s\n"
+                    "\t\tsummary: %s\n",
             type->name, type->summary);
 }
 
@@ -158,10 +158,10 @@ qimm_config_project_theme_free(void *obj) {
 
 static void
 qimm_config_project_theme_print(struct qimm_project_config_theme *theme) {
-    printf("\tqimm_project_config_theme:\n"
-           "\t\tname: %s\n"
-           "\t\tforeground: %s\n"
-           "\t\tbackground: %s\n",
+    fprintf(stderr, "\tqimm_project_config_theme:\n"
+                    "\t\tname: %s\n"
+                    "\t\tforeground: %s\n"
+                    "\t\tbackground: %s\n",
             theme->name, theme->foreground, theme->background);
 }
 
@@ -244,8 +244,8 @@ qimm_config_project_free(void *project_config) {
 
 static void
 qimm_config_project_print(struct qimm_project_config *config) {
-    printf("qimm_project_config:\n"
-           "\tname: %s\n",
+    fprintf(stderr, "qimm_project_config:\n"
+                    "\tname: %s\n",
             config->name);
 
     struct qimm_project_config_theme *theme;

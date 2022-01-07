@@ -17,8 +17,8 @@
  */
 #include "share.h"
 
-/** NOTE:
- *
+/*
+ * NOTE:
  * copy from compositor/main.c: wet_get_binary_path
  * identical
  */

@@ -112,6 +112,7 @@ struct wet_layoutput {
 	char *name;
 	struct weston_config_section *section;
 	struct wet_head_array add;	/**< tmp: heads to add as clones */
+	bool positioned; /**< tmp: mark is postioned or not when repositon */
 };
 
 struct wet_compositor {
@@ -2191,6 +2192,228 @@ drm_try_attach_enable(struct weston_output *output, struct wet_layoutput *lo)
 	return 0;
 }
 
+static struct weston_output *
+drm_position_layoutput_first_output(struct wet_layoutput *lo)
+{
+	struct wet_output *output;
+
+	if (wl_list_empty(&lo->output_list))
+		return NULL;
+
+	output = container_of(lo->output_list.next, struct wet_output, link);
+	return output->output;
+}
+
+static struct wet_layoutput *
+drm_position_layoutput_find(struct wet_compositor *wet, const char *name)
+{
+	struct wet_layoutput *lo;
+
+	wl_list_for_each(lo, &wet->layoutput_list, compositor_link) {
+		if (!strcmp(lo->name, name))
+			return lo;
+	}
+
+	return NULL;
+}
+
+static int
+drm_position_layoutput(struct wet_layoutput *lo,
+		       struct wet_layoutput *origin,
+		       bool recursion)
+{
+	static struct wet_layoutput *rec_buf[9];
+	static int rec_count;
+	int i, j;
+
+	struct weston_output *output, *output_refer;
+	struct wet_layoutput *refer = origin;
+	char *pos_refer, *pos_direction, *pos_align;
+	bool right, top, bottom, end, center;
+	int32_t x = 0, y = 0;
+
+	if (lo->positioned)
+		return 0;
+
+	output = drm_position_layoutput_first_output(lo);
+	if (!output) {
+		weston_log("Warning: no output for layoutput (%s)\n", lo->name);
+		return 0;
+	}
+
+	/*
+	 * check circular reference
+	 */
+	if (recursion) {
+		for (i = 0; i < rec_count; i++)
+			if (rec_buf[i] == lo) {
+				weston_log("Error: detected circular reference"
+					   " outputs: %s",
+					   rec_buf[0]->name);
+				for (j = 1; j < rec_count; j++)
+					weston_log_continue(" -> %s",
+							    rec_buf[j]->name);
+				weston_log_continue(" -> %s\n", lo->name);
+				return -1;
+			}
+
+		if (rec_count >= 9) {
+			weston_log("Error: recursive call level limit (9)"
+				   " reached\n");
+			return -1;
+		}
+	} else {
+		rec_count = 0;
+	}
+	rec_buf[rec_count++] = lo;
+
+	if (lo != origin) {
+		weston_config_section_get_string(lo->section, "pos-refer",
+						 &pos_refer, NULL);
+		if (pos_refer) {
+			refer = drm_position_layoutput_find(lo->compositor,
+							    pos_refer);
+			if (!refer) {
+				weston_log("Error: no refer layoutput (%s)"
+					   " for (%s)\n",
+					   pos_refer, lo->name);
+				free(pos_refer);
+				return -1;
+			}
+			free(pos_refer);
+		}
+		/* postion refer output first */
+		if (drm_position_layoutput(refer, origin, true))
+			return -1;
+		output_refer = drm_position_layoutput_first_output(refer);
+		if (!output_refer) {
+			weston_log("Error: no output for refer output (%s)\n",
+				   refer->name);
+			return -1;
+		}
+
+		weston_config_section_get_string(lo->section, "pos-direction",
+						 &pos_direction, "left");
+		weston_config_section_get_string(lo->section, "pos-align",
+						 &pos_align, "start");
+		right = !strcmp(pos_direction, "right");
+		top = !strcmp(pos_direction, "top");
+		bottom = !strcmp(pos_direction, "bottom");
+		end = !strcmp(pos_align, "end");
+		center = !strcmp(pos_align, "center");
+		free(pos_direction);
+		free(pos_align);
+
+		if (top || bottom) { /* vertical */
+			if (top) {
+				y = output_refer->y - output->height;
+				pos_direction = "top";
+			} else {
+				y = output_refer->y + output_refer->height;
+				pos_direction = "bottom";
+			}
+
+			/* align start: default or invalid configuration */
+			x = output_refer->x;
+			pos_align = "start";
+			if (end) {
+				x += output_refer->width - output->width;
+				pos_align = "end";
+			} else if (center) {
+				x += (output_refer->width - output->width) / 2;
+				pos_align = "center";
+			}
+		} else { /* horizontal: default or invalid configuration */
+			if (right) {
+				x = output_refer->x + output_refer->width;
+				pos_direction = "right";
+			} else { /* left: default or invalid configuration */
+				x = output_refer->x - output->width;
+				pos_direction = "left";
+			}
+
+			/* align start: default or invalid configuration */
+			y = output_refer->y;
+			pos_align = "start";
+			if (end) {
+				y += output_refer->height - output->height;
+				pos_align = "end";
+			} else if (center) {
+				y += (output_refer->height - output->height) / 2;
+				pos_align = "center";
+			}
+		}
+		weston_log("output (%s) to the %s of and %s aligned to (%s)\n",
+			   output->name, pos_direction, pos_align, refer->name);
+	}
+
+	weston_output_move(output, x, y);
+	weston_log("output (%s) positioned to (%d %d, %d %d)\n",
+		   output->name,
+		   output->x, output->y, output->width, output->height);
+
+	lo->positioned = true;
+	return 0;
+}
+
+static int
+drm_position_layoutputs(struct wet_compositor *wet)
+{
+	struct wet_layoutput *lo, *first = NULL, *origin = NULL;
+	char *pos_origin;
+
+	/*
+	 * find origin output in config
+	 * if output is config pos-origin=false, this output cannot been origin
+	 * if no output is config pos-origin=true, the first output is origin
+	 */
+	wl_list_for_each(lo, &wet->layoutput_list, compositor_link) {
+		if (wl_list_length(&lo->output_list) > 1) {
+			weston_log("Error: position output not support"
+				   " independent-CRTC clone mode yet\n");
+			return -1;
+		}
+
+		/*
+		 * NOTE: the default empty value is used to distinguish whether
+		 *       pos-origin is set to false or not set
+		 * if pos-origin is set to false, DO NOT use as origin
+		 */
+		weston_config_section_get_string(lo->section, "pos-origin",
+						 &pos_origin, "");
+		if (!strcmp(pos_origin, "true")) {
+			if (origin) {
+				weston_log("Error: output %s and %s cannot"
+					   " both origin\n",
+					   origin->name, lo->name);
+				free(pos_origin);
+				return -1;
+			}
+			origin = lo;
+		} else if (strcmp(pos_origin, "false") != 0 && !first) {
+			first = lo;
+		}
+		free(pos_origin);
+
+		lo->positioned = false;
+	}
+	if (!origin) {
+		if (!first) {
+			weston_log("Error: can not find origin output\n");
+			return -1;
+		}
+		origin = first;
+	}
+	weston_log("output (%s) is origin\n", origin->name);
+
+	wl_list_for_each(lo, &wet->layoutput_list, compositor_link) {
+		if (drm_position_layoutput(lo, origin, false))
+			return -1;
+	}
+
+	return 0;
+}
+
 static int
 drm_process_layoutput(struct wet_compositor *wet, struct wet_layoutput *lo)
 {
@@ -2269,6 +2492,9 @@ drm_process_layoutputs(struct wet_compositor *wet)
 			ret = -1;
 		}
 	}
+
+	if (!ret)
+		drm_position_layoutputs(wet);
 
 	return ret;
 }

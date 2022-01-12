@@ -576,6 +576,35 @@ A comma separated list of the IDs of applications to place on this output.
 These IDs should match the application IDs as set with the xdg_shell.set_app_id
 request. Currently, this option is supported by kiosk-shell.
 .RE
+.TP 7
+.BI "pos-origin=" false
+Used as origin output, the origin output is positioned at (0, 0) and only one.
+If set to false, DO NOT used as origin output. If this is not set, used as a
+candidate for origin output, the first one (at run-time not at config file)
+will be used when no origin output is configured. The reposition will stop when
+origin output is not found. Currently, this option is supported by drm-backend.
+Defaults to unset.
+.RE
+.TP 7
+.BI "pos-refer=" output-name
+The name of the output referenced by this output, this output will be positioned
+relative to that output. If this is not set, origin output will be used. The
+reposition will stop when reference output is not found or reference output is
+repositioned failed or circular reference occurs. Currently, this option is
+supported by drm-backend. Defaults to unset.
+.RE
+.TP 7
+.BI "pos-direction=" {left,right,top,bottom}
+Set direction relative to reference output. Currently, this option is supported
+by drm-backend. \fIleft\fR is the default.
+.RE
+.TP 7
+.BI "pos-align=" {start,center,end}
+Set align relative to reference output, the align is cross with direction.
+\fIstart\fR make this output line up at the start of reference output.
+\fIcenter\fR to align them in the center. \fIend\fR to align them to the end.
+Currently, this option is supported by drm-backend. \fIstart\fR is the default.
+.RE
 .SH "INPUT-METHOD SECTION"
 .TP 7
 .BI "path=" "@weston_libexecdir@/weston-keyboard"

@@ -49,6 +49,9 @@ struct qimm_shell {
     /* the common config for all projects */
     struct qimm_project_config *config;
 
+    /* path for data directory */
+    char *data_path;
+
     bool locked;
 
     struct timespec startup_time;
@@ -83,8 +86,8 @@ struct qimm_output {
  * The project maintain all of its data by itself. So it can restore status
  * after reboot, and also can sync to other device.
  *
- * The project layout by qimm-shell, and can resize and position by user.
- * The project show data by qimm-item and third applications.
+ * The project layout by qimm-shell, and can resize and reposition by user.
+ * The project show data by qimm-client and third applications.
  *
  * When previous project is finished, user can create next project, this
  * reflects the actual work of the user.
@@ -98,7 +101,8 @@ struct qimm_project {
     char *name;
     struct weston_layer layer;
 
-    /* the config for project with name */
+    /* the config for project */
+    char *config_name;
     struct qimm_project_config *config;
 
     /*
@@ -112,6 +116,8 @@ struct qimm_project {
 /*
  * The common config in qimm_shell and project config in qimm_project.
  * Each config contain themes, types, and layouts for project render.
+ *
+ * Each layout render a type in specified postion at runtime.
  */
 struct qimm_project_config {
     char *name;
@@ -157,8 +163,9 @@ struct qimm_layout {
     int32_t w, h;
 
     /*
-     * filled by client process started
-     * used to find which layout for client surface
+     * filled when client process started
+     * cleared when client destroyed
+     * used to find layout for client surface
      */
     struct qimm_client *client;
 };
@@ -174,8 +181,8 @@ struct qimm_client {
     struct weston_surface *surface;
 
     /*
-     * filled by client destroied
-     * used to clear client field in layout
+     * filled when client process started
+     * used to clear client field in layout when client destroyed
      */
     struct qimm_layout *layout;
 };
@@ -184,7 +191,8 @@ struct qimm_client {
  * client == NULL when error
  */
 typedef void(*qimm_client_startup_func_t)(struct qimm_shell *shell,
-        struct qimm_client *client, void *data);
+                                          struct qimm_client *client,
+                                          void *data);
 struct qimm_client_startup {
     struct qimm_shell *shell;
 
@@ -210,6 +218,31 @@ struct qimm_surface {
     struct qimm_layout *layout;
 };
 
+/*
+ * The project data saved to user HOME dir at runtime.
+ *
+ * Use a separate directory to save each project.
+ * Use a sepatate yaml file in project directory to save each project data.
+ */
+struct qimm_data_base {
+    char *name;
+    qimm_yaml_write_data_func_t func;
+};
+struct qimm_data_background {
+    struct qimm_data_base base;
+
+    uint32_t color;
+    char *image;
+    char *type;
+    int type_e;
+};
+enum QIMM_DATA_BACKGROUND_TYPE {
+    SCALE,
+    CROP,
+    TILE,
+    CENTERED
+};
+
 /* --------- layer --------- */
 void
 qimm_layer_init(struct qimm_shell *shell);
@@ -219,19 +252,25 @@ qimm_layer_release(struct qimm_shell *shell);
  * call func to each shown layer in shell
  */
 typedef void (*qimm_layer_for_each_func_t)(struct qimm_shell *,
-        struct weston_layer *, void *);
+                                           struct weston_layer *,
+                                           void *);
 void
 qimm_layer_for_each(struct qimm_shell *shell,
-        qimm_layer_for_each_func_t func, void *data);
+                    qimm_layer_for_each_func_t func, void *data);
 
 /* --------- output --------- */
 void
 qimm_output_init(struct qimm_shell *shell);
 void
 qimm_output_release(struct qimm_shell *shell);
+struct qimm_output *
+qimm_output_get_default(struct qimm_shell *shell);
+struct qimm_output *
+qimm_output_find_by_name(struct qimm_shell *shell, const char *name);
 void
 qimm_output_project_insert(struct qimm_output *output,
-        struct wl_list *pos, struct qimm_project *project);
+                           struct wl_list *pos,
+                           struct qimm_project *project);
 void
 qimm_output_project_remove(struct qimm_project *project);
 /*
@@ -261,7 +300,9 @@ qimm_client_project_start(struct qimm_project *project);
 
 /* --------- project --------- */
 struct qimm_project *
-qimm_project_create(struct qimm_shell *shell, const char *name);
+qimm_project_create(struct qimm_shell *shell,
+                    const char *name,
+                    const char *config_name);
 struct qimm_project *
 qimm_project_create_dashboard(struct qimm_shell *shell);
 struct qimm_project *
@@ -271,8 +312,6 @@ qimm_project_destroy(struct qimm_project *project);
 
 int
 qimm_project_load(struct qimm_shell *shell);
-int
-qimm_project_load_from_disk(struct qimm_shell *shell);
 void
 qimm_project_unload(struct qimm_shell *shell);
 
@@ -281,7 +320,7 @@ qimm_project_show(struct qimm_project *project);
 
 /* --------- config --------- */
 void *
-qimm_config_project_load(const char *name);
+qimm_config_project_load(const char *name, const char *config_name);
 void
 qimm_config_project_free(void *project_config);
 
@@ -299,6 +338,17 @@ struct qimm_layout *
 qimm_layout_find_by_client(struct qimm_shell *shell, struct wl_client *client);
 int
 qimm_layout_project_update(struct qimm_project *project);
+
+/* --------- data --------- */
+char *
+qimm_data_path(void);
+int
+qimm_data_save_project(struct qimm_project *project);
+void *
+qimm_data_read_project(struct qimm_shell *shell, const char *name);
+int
+qimm_data_save_background(struct qimm_project *project,
+                          struct qimm_data_background *background);
 
 /* --------- shell --------- */
 struct qimm_output *

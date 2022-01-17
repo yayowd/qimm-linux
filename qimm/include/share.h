@@ -31,6 +31,7 @@
 #include <sys/socket.h>
 #include <sys/param.h>
 #include <linux/limits.h>
+#include <linux/input.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -39,6 +40,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <stdarg.h>
+#include <dirent.h>
 #include <wayland-version.h>
 #include <wayland-util.h>
 #include <yaml.h>
@@ -90,7 +92,7 @@ int
 qimm_yaml_next_event(yaml_parser_t *parser, yaml_event_t *event);
 int
 qimm_yaml_next_event_is(yaml_parser_t *parser, yaml_event_t *event,
-        yaml_event_type_t type, const char *error);
+                        yaml_event_type_t type, const char *error);
 
 char *
 qimm_yaml_next_value(yaml_parser_t *parser, yaml_event_t *event);
@@ -108,7 +110,7 @@ struct qimm_yaml_read_mapping_fun {
      *    -2   unknow key
      */
     int (*data)(yaml_parser_t *parser, yaml_event_t *event,
-            void *obj, char *key);
+                void *obj, char *key);
     /* free object when error occurred */
     void (*free)(void *obj);
 
@@ -116,7 +118,7 @@ struct qimm_yaml_read_mapping_fun {
 
 void *
 qimm_yaml_read_mapping(yaml_parser_t *parser, yaml_event_t *event,
-        struct qimm_yaml_read_mapping_fun *fun);
+                       struct qimm_yaml_read_mapping_fun *fun);
 
 struct qimm_yaml_read_sequence_fun {
     /* list to fill */
@@ -127,7 +129,14 @@ struct qimm_yaml_read_sequence_fun {
 
 int
 qimm_yaml_read_sequence(yaml_parser_t *parser, yaml_event_t *event,
-        struct qimm_yaml_read_sequence_fun *fun);
+                        struct qimm_yaml_read_sequence_fun *fun);
+
+typedef int (*qimm_yaml_write_data_func_t)(yaml_emitter_t *emitter,
+                                           void *data);
+int
+qimm_yaml_write_document(const char *path,
+                         qimm_yaml_write_data_func_t func,
+                         void *data);
 
 /* --------- shares --------- */
 char *

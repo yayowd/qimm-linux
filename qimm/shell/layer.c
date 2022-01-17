@@ -1,5 +1,5 @@
 /* This file is part of qimm project.
- * qimm is a Situational Linux Desktop Based on Wayland.
+ * qimm is a Situational Linux Desktop Based on Weston.
  * Copyright (C) 2021 The qimm Authors.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -21,7 +21,7 @@ void
 qimm_layer_init(struct qimm_shell *shell) {
     weston_layer_init(&shell->background_layer, shell->compositor);
     weston_layer_set_position(&shell->background_layer,
-            WESTON_LAYER_POSITION_BACKGROUND);
+                              WESTON_LAYER_POSITION_BACKGROUND);
 }
 
 void

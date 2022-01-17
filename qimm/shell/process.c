@@ -1,5 +1,5 @@
 /* This file is part of qimm project.
- * qimm is a Situational Linux Desktop Based on Wayland.
+ * qimm is a Situational Linux Desktop Based on Weston.
  * Copyright (C) 2021 The qimm Authors.
  *
  * This program is free software: you can redistribute it and/or modify

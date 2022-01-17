@@ -38,10 +38,10 @@ qimm_yaml_next_event(yaml_parser_t *parser, yaml_event_t *event) {
 
         if (!yaml_parser_parse(parser, event)) {
             qimm_log("qimm yaml next event error: [%lu:%lu] (%d)%s",
-                    parser->problem_mark.line + 1,
-                    parser->problem_mark.column,
-                    parser->error,
-                    parser->problem);
+                     parser->problem_mark.line + 1,
+                     parser->problem_mark.column,
+                     parser->error,
+                     parser->problem);
             return -1;
         }
     }
@@ -62,23 +62,23 @@ qimm_yaml_next_event(yaml_parser_t *parser, yaml_event_t *event) {
 
 int
 qimm_yaml_next_event_is(yaml_parser_t *parser, yaml_event_t *event,
-        yaml_event_type_t type, const char *error) {
+                        yaml_event_type_t type, const char *error) {
     if (qimm_yaml_next_event(parser, event) < 0)
         return -1; // parse error
     if (event->type == type)
         return 0; // match type
     qimm_plog(error, "([%lu:%lu] type %d)",
-            event->start_mark.line + 1,
-            event->start_mark.column,
-            event->type);
+              event->start_mark.line + 1,
+              event->start_mark.column,
+              event->type);
     return -2; // not match
 }
 
 char *
 qimm_yaml_next_value(yaml_parser_t *parser, yaml_event_t *event) {
     if (qimm_yaml_next_event_is(parser, event,
-            YAML_SCALAR_EVENT,
-            "qimm yaml next value error: not value") < 0)
+                                YAML_SCALAR_EVENT,
+                                "qimm yaml next value error: not value") < 0)
         return NULL;
 
     char *buf = (char *) event->data.scalar.value;
@@ -129,18 +129,18 @@ qimm_yaml_next_skip(yaml_parser_t *parser, yaml_event_t *event) {
 
 succ:
     qimm_log("qimm yaml next skip: [%lu:%lu] type(%d)",
-            event->end_mark.line + 1,
-            event->end_mark.column,
-            event->type);
+             event->end_mark.line + 1,
+             event->end_mark.column,
+             event->type);
     return 0;
 }
 
 void *
 qimm_yaml_read_mapping(yaml_parser_t *parser, yaml_event_t *event,
-        struct qimm_yaml_read_mapping_fun *fun) {
+                       struct qimm_yaml_read_mapping_fun *fun) {
     if (qimm_yaml_next_event_is(parser, event,
-            YAML_MAPPING_START_EVENT,
-            "qimm yaml read mapping error: not object") < 0)
+                                YAML_MAPPING_START_EVENT,
+                                "qimm yaml read mapping error: not object") < 0)
         return NULL;
 
     void *obj = fun->init();
@@ -155,9 +155,9 @@ qimm_yaml_read_mapping(yaml_parser_t *parser, yaml_event_t *event,
             int ret = fun->data(parser, event, obj, key);
             if (ret == -2) {
                 qimm_log("qimm yaml read mapping warning: [%lu:%lu] unknow key(%s)",
-                        event->start_mark.line + 1,
-                        event->start_mark.column,
-                        key);
+                         event->start_mark.line + 1,
+                         event->start_mark.column,
+                         key);
                 if (qimm_yaml_next_skip(parser, event) < 0) {
                     qimm_log("qimm yaml read mapping error: next skip");
                     goto err;
@@ -166,9 +166,9 @@ qimm_yaml_read_mapping(yaml_parser_t *parser, yaml_event_t *event,
                 goto err;
         } else {
             qimm_log("qimm yaml read mapping error: [%lu:%lu] not key(type %d)",
-                    event->start_mark.line + 1,
-                    event->start_mark.column,
-                    event->type);
+                     event->start_mark.line + 1,
+                     event->start_mark.column,
+                     event->type);
             goto err;
         }
     } while (event->type != YAML_STREAM_END_EVENT);
@@ -182,10 +182,10 @@ err:
 
 int
 qimm_yaml_read_sequence(yaml_parser_t *parser, yaml_event_t *event,
-        struct qimm_yaml_read_sequence_fun *fun) {
+                        struct qimm_yaml_read_sequence_fun *fun) {
     if (qimm_yaml_next_event_is(parser, event,
-            YAML_SEQUENCE_START_EVENT,
-            "qimm yaml read sequence error: not list") < 0)
+                                YAML_SEQUENCE_START_EVENT,
+                                "qimm yaml read sequence error: not list") < 0)
         return -1;
 
     do {
@@ -204,4 +204,41 @@ qimm_yaml_read_sequence(yaml_parser_t *parser, yaml_event_t *event,
     } while (event->type != YAML_STREAM_END_EVENT);
 
     return 0;
+}
+
+int
+qimm_yaml_write_document(const char *path,
+                         qimm_yaml_write_data_func_t func,
+                         void *data) {
+    FILE *file;
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+    int ret = -1;
+
+    file = fopen(path, "wb");
+    if (file) {
+        yaml_emitter_initialize(&emitter);
+        yaml_emitter_set_output_file(&emitter, file);
+
+        yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+        if (!yaml_emitter_emit(&emitter, &event)) goto err;
+
+        yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 0);
+        if (!yaml_emitter_emit(&emitter, &event)) goto err;
+
+        if (func(&emitter, data) < 0) goto err;
+
+        yaml_document_end_event_initialize(&event, 0);
+        if (!yaml_emitter_emit(&emitter, &event)) goto err;
+
+        yaml_stream_end_event_initialize(&event);
+        if (!yaml_emitter_emit(&emitter, &event)) goto err;
+
+        ret = 0;
+
+err:
+        yaml_emitter_delete(&emitter);
+        fclose(file);
+    }
+    return ret;
 }

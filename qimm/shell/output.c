@@ -1,5 +1,5 @@
 /* This file is part of qimm project.
- * qimm is a Situational Linux Desktop Based on Wayland.
+ * qimm is a Situational Linux Desktop Based on Weston.
  * Copyright (C) 2021 The qimm Authors.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -22,6 +22,8 @@ qimm_output_destroy(struct qimm_output *qimm_output) {
     assert(wl_list_empty(&qimm_output->projects));
     assert(qimm_output->project_cur == NULL);
 
+    wl_list_remove(&qimm_output->destroy_listener.link);
+
     wl_list_remove(&qimm_output->link);
     free(qimm_output);
 }
@@ -30,8 +32,6 @@ static void
 handle_output_destroy(struct wl_listener *listener, void *data) {
     struct qimm_output *qimm_output =
             container_of(listener, struct qimm_output, destroy_listener);
-
-    wl_list_remove(&qimm_output->destroy_listener.link);
 
     /*
      * If the output is destroyed at runtime, move its projects to prev output.
@@ -43,7 +43,7 @@ handle_output_destroy(struct wl_listener *listener, void *data) {
 }
 
 static struct qimm_output *
-create_qimm_output(struct qimm_shell *shell, struct weston_output *output) {
+qimm_output_create(struct qimm_shell *shell, struct weston_output *output) {
     struct qimm_output *qimm_output = zalloc(sizeof *qimm_output);
     if (!qimm_output)
         return NULL;
@@ -69,17 +69,34 @@ handle_output_create(struct wl_listener *listener, void *data) {
             container_of(listener, struct qimm_shell, output_create_listener);
     struct weston_output *output = data;
 
-    struct qimm_output *qimm_output = create_qimm_output(shell, output);
+    struct qimm_output *qimm_output = qimm_output_create(shell, output);
 
     /*
      * restore project from other output to this new output by output_name
      */
     qimm_output_project_restore(qimm_output);
+
+    // add if empty
+    if (wl_list_empty(&qimm_output->projects)) {
+        struct qimm_project *project = qimm_project_create_assistant(shell);
+        if (project == NULL) {
+            qimm_log("cannot create project for new output (%s)", output->name);
+            return;
+        }
+
+        qimm_output_project_insert(qimm_output, NULL, project);
+    }
+
+    // make sure first project is shown in new output
+    struct qimm_project *first =
+            container_of(qimm_output->projects.next, struct qimm_project, link);
+    qimm_project_show(first);
 }
 
 static void
 handle_output_move_layer(struct qimm_shell *shell,
-        struct weston_layer *layer, void *data) {
+                         struct weston_layer *layer,
+                         void *data) {
     struct weston_output *output = data;
     struct weston_view *view;
     float x, y;
@@ -97,7 +114,8 @@ handle_output_move_layer(struct qimm_shell *shell,
 static void
 handle_output_move(struct wl_listener *listener, void *data) {
     struct qimm_shell *shell = container_of(listener,
-            struct qimm_shell, output_move_listener);
+                                            struct qimm_shell,
+                                            output_move_listener);
 
     qimm_layer_for_each(shell, handle_output_move_layer, data);
 }
@@ -108,16 +126,16 @@ qimm_output_init(struct qimm_shell *shell) {
 
     struct weston_output *output;
     wl_list_for_each(output, &shell->compositor->output_list, link) {
-        create_qimm_output(shell, output);
+        qimm_output_create(shell, output);
     }
 
     shell->output_create_listener.notify = handle_output_create;
     wl_signal_add(&shell->compositor->output_created_signal,
-            &shell->output_create_listener);
+                  &shell->output_create_listener);
 
     shell->output_move_listener.notify = handle_output_move;
     wl_signal_add(&shell->compositor->output_moved_signal,
-            &shell->output_move_listener);
+                  &shell->output_move_listener);
 }
 
 void
@@ -131,15 +149,37 @@ qimm_output_release(struct qimm_shell *shell) {
     wl_list_remove(&shell->output_move_listener.link);
 }
 
+struct qimm_output *
+qimm_output_get_default(struct qimm_shell *shell) {
+    if (wl_list_empty(&shell->outputs))
+        return NULL;
+
+    return container_of(shell->outputs.next, struct qimm_output, link);
+}
+
+struct qimm_output *
+qimm_output_find_by_name(struct qimm_shell *shell, const char *name) {
+    struct qimm_output *output;
+    wl_list_for_each(output, &shell->outputs, link) {
+        if (!strcmp(output->output->name, name))
+            return output;
+    }
+    return NULL;
+}
+
 void
 qimm_output_project_insert(struct qimm_output *output,
-        struct wl_list *pos, struct qimm_project *project) {
+                           struct wl_list *pos,
+                           struct qimm_project *project) {
     wl_list_remove(&project->link);
     wl_list_insert(pos ?: output->projects.prev, &project->link);
 
     project->output = output;
     free(project->output_name);
     project->output_name = strdup(output->output->name);
+
+    if (qimm_data_save_project(project) < 0)
+        qimm_log("project (%s) save failed", project->name);
 }
 
 void
@@ -156,21 +196,23 @@ qimm_output_project_remove(struct qimm_project *project) {
 
 int
 qimm_output_project_move(struct qimm_output *from) {
-    /* no more peojects to move */
+    /* no more projects to move */
     if (wl_list_empty(&from->projects))
         return 0;
 
     /* no more output to move */
-    if (wl_list_length(&from->shell->outputs) <= 1) {
+    if (wl_list_length(&from->shell->outputs) < 2) {
         qimm_log("move project from output failed: no more output");
         return -1;
     }
 
     /* move projects to prev output */
-    struct qimm_output *to = container_of(from->link.prev,
-            struct qimm_output, link);
-    struct qimm_project *project;
-    wl_list_for_each(project, &from->projects, link) {
+    struct wl_list *prev = from->link.prev;
+    if (prev == &from->shell->outputs)
+        prev = from->link.next;
+    struct qimm_output *to = container_of(prev, struct qimm_output, link);
+    struct qimm_project *project, *tmp;
+    wl_list_for_each_safe(project, tmp, &from->projects, link) {
         wl_list_remove(&project->link);
         wl_list_insert(to->projects.prev, &project->link);
 
@@ -198,11 +240,11 @@ qimm_output_project_restore(struct qimm_output *to) {
          * new project to shown when current old output's project
          * need be restored
          */
-        struct wl_list *pos_old = NULL;
-        struct qimm_project *project_old, *project_cur = NULL;
+        struct wl_list *pos_old;
+        struct qimm_project *project_old = NULL, *project_cur = NULL;
 
-        struct qimm_project *project;
-        wl_list_for_each(project, &output->projects, link) {
+        struct qimm_project *project, *tmp;
+        wl_list_for_each_safe(project, tmp, &output->projects, link) {
             if (!strcmp(project->output_name, to->output->name)) {
                 /*
                  * when old output's project is showing in new output, whether
@@ -211,19 +253,24 @@ qimm_output_project_restore(struct qimm_output *to) {
                 if (output->project_cur == project) {
                     pos_old = to->projects.prev;
                     project_old = project;
-                } else
+                } else {
                     qimm_output_project_insert(to, NULL, project);
-            } else if (!pos_old || !project_cur)
+                }
+            } else if (!project_old || !project_cur) {
                 /*
                  * the new project to shown
                  * is the last before current old output's project
                  * or the first after current old output's project
                  */
                 project_cur = project;
+            }
         }
 
-        /* when need to restore current old output's project */
-        if (pos_old && project_cur) {
+        /*
+         * If the projects which restore to new output and show in this output
+         * are both exsit, do restore, otherwise let project in this output
+         */
+        if (project_old && project_cur) {
             qimm_output_project_insert(to, pos_old, project_old);
 
             /* show new project in this output */

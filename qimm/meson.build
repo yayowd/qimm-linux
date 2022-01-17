@@ -1,11 +1,12 @@
 # --version & build id
+qimm_name = 'qimm'
 qimm_version = '0.0.1'
 qimm_build_id = '"@0@"'.format(qimm_version)
 git = find_program('git', native: true, required: false)
 if git.found()
-	git_commit = run_command([git, 'rev-parse', '--short', 'HEAD'])
-	git_branch = run_command([git, 'rev-parse', '--abbrev-ref', 'HEAD'])
-	cur_date = run_command(['date', '-u'], env: ['LANG='])
+	git_commit = run_command(git, 'rev-parse', '--short', 'HEAD', check: true)
+	git_branch = run_command(git, 'rev-parse', '--abbrev-ref', 'HEAD', check: true)
+	cur_date = run_command('date', '-u', env: ['LANG='], check: true)
 	if git_commit.returncode() == 0 and git_branch.returncode() == 0
 		qimm_build_id = '@0@-@1@ (@2@, branch \'@3@\')'.format(
 			qimm_version,
@@ -21,10 +22,11 @@ qimm_config_h.set('_GNU_SOURCE', '1')
 qimm_config_h.set('_ALL_SOURCE', '1')
 qimm_config_h.set_quoted('QIMM_PACKAGE_STRING', 'qimm @0@'.format(qimm_version))
 qimm_config_h.set_quoted('QIMM_PACKAGE_VERSION', qimm_version)
+qimm_config_h.set_quoted('QIMM_NAME', qimm_name)
 qimm_config_h.set_quoted('QIMM_VERSION', qimm_version)
 qimm_config_h.set_quoted('QIMM_BUILD_ID', qimm_build_id)
-qimm_config_h.set_quoted('QIMM_PACKAGE_URL', 'https://github.com/yayowd/qimm')
-qimm_config_h.set_quoted('QIMM_PACKAGE_BUGREPORT', 'https://github.com/yayowd/qimm/issues')
+qimm_config_h.set_quoted('QIMM_PACKAGE_URL', 'https://gitlab.freedesktop.org/yayowd/qimm')
+qimm_config_h.set_quoted('QIMM_PACKAGE_BUGREPORT', 'https://gitlab.freedesktop.org/yayowd/qimm/issues')
 
 # --directories
 dir_module_qimm = join_paths(dir_lib, 'qimm')

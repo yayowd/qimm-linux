@@ -1,5 +1,5 @@
 /* This file is part of qimm project.
- * qimm is a Situational Linux Desktop Based on Wayland.
+ * qimm is a Situational Linux Desktop Based on Weston.
  * Copyright (C) 2021 The qimm Authors.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -44,8 +44,6 @@ qimm_layout_project_find_type(struct qimm_project *project, const char *name) {
 
 int
 qimm_layout_project_init(struct qimm_project *project) {
-    wl_list_init(&project->layouts);
-
     struct qimm_layout *layout;
     struct qimm_project_config_layout *config_layout;
     struct qimm_project_config_type *type;
@@ -55,7 +53,8 @@ qimm_layout_project_init(struct qimm_project *project) {
         wl_list_for_each(config_layout, layouts, link) {
             type = qimm_layout_project_find_type(project, config_layout->name);
             if (!type) {
-                qimm_log("layout init error: project[%s] no matching type for layout[%s]",
+                qimm_log("layout init error: project (%s) no matching type "
+                         "for layout (%s)",
                         project->name, config_layout->name);
                 return -1;
             }
@@ -67,18 +66,21 @@ qimm_layout_project_init(struct qimm_project *project) {
         }
     }
 
-    wl_list_for_each(config_layout, &project->config->layouts, link) {
-        type = qimm_layout_project_find_type(project, config_layout->name);
-        if (!type) {
-            qimm_log("layout init error: project[%s] no matching type for layout[%s]",
-                    project->name, config_layout->name);
-            return -1;
-        }
+    if (project->config) {
+        wl_list_for_each(config_layout, &project->config->layouts, link) {
+            type = qimm_layout_project_find_type(project, config_layout->name);
+            if (!type) {
+                qimm_log("layout init error: project (%s) no matching type "
+                         "for layout (%s)",
+                         project->name, config_layout->name);
+                return -1;
+            }
 
-        layout = zalloc(sizeof *layout);
-        layout->project = project;
-        layout->config_layout = config_layout;
-        wl_list_insert(project->layouts.prev, &layout->link);
+            layout = zalloc(sizeof *layout);
+            layout->project = project;
+            layout->config_layout = config_layout;
+            wl_list_insert(project->layouts.prev, &layout->link);
+        }
     }
 
     return 0;
@@ -117,7 +119,7 @@ int
 qimm_layout_project_update(struct qimm_project *project) {
     struct qimm_output *output = project->output;
     if (!output) {
-        qimm_log("layout update error: project[%s] no output", project->name);
+        qimm_log("layout update error: project (%s) no output", project->name);
         return -1;
     }
 

@@ -1,5 +1,5 @@
 /* This file is part of qimm project.
- * qimm is a Situational Linux Desktop Based on Wayland.
+ * qimm is a Situational Linux Desktop Based on Weston.
  * Copyright (C) 2021 The qimm Authors.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -20,7 +20,7 @@
 
 static void
 desktop_shell_test(struct wl_client *client,
-        struct wl_resource *resource) {
+                   struct wl_resource *resource) {
     qimm_log("desktop_shell_set_background ...");
 }
 
@@ -41,17 +41,17 @@ unbind_desktop_shell(struct wl_resource *resource) {
 
 static void
 bind_desktop_shell(struct wl_client *client,
-        void *data, uint32_t version, uint32_t id) {
+                   void *data, uint32_t version, uint32_t id) {
     struct qimm_shell *shell = data;
     struct wl_resource *resource;
 
     resource = wl_resource_create(client, &qimm_desktop_shell_interface,
-            1, id);
+                                  1, id);
 
 //    if (client == shell->child.client) {
     wl_resource_set_implementation(resource,
-            &desktop_shell_implementation,
-            shell, unbind_desktop_shell);
+                                   &desktop_shell_implementation,
+                                   shell, unbind_desktop_shell);
     // shell->child.desktop_shell = resource;
 //        return;
 //    }
@@ -63,22 +63,15 @@ bind_desktop_shell(struct wl_client *client,
 int
 qimm_client_init(struct qimm_shell *shell) {
     shell->client_path = qimm_get_module_path(QIMM_SHELL_CLIENT);
-    if (shell->client_path == NULL) {
+    if (shell->client_path == NULL)
         return -1;
-    }
 
     shell->global_shell_iface = wl_global_create(shell->compositor->wl_display,
-            &qimm_desktop_shell_interface, 1,
-            shell, bind_desktop_shell);
+                                                 &qimm_desktop_shell_interface,
+                                                 1,
+                                                 shell, bind_desktop_shell);
     if (!shell->global_shell_iface) {
         qimm_log("failed to create global shell interface");
-        return -1;
-    }
-
-    /* load common config for client */
-    shell->config = qimm_config_project_load("common");
-    if (!shell->config) {
-        qimm_log("failed to config project[%s]", "common");
         return -1;
     }
 
@@ -91,9 +84,6 @@ qimm_client_release(struct qimm_shell *shell) {
 
     if (shell->global_shell_iface)
         wl_global_destroy(shell->global_shell_iface);
-
-    if (shell->config)
-        qimm_config_project_free(shell->config);
 }
 
 static void
@@ -151,7 +141,7 @@ qimm_client_start(struct qimm_client_startup *startup) {
 
 static void
 qimm_client_start_layout_func(struct qimm_shell *shell,
-        struct qimm_client *client, void *data) {
+                              struct qimm_client *client, void *data) {
     if (client) { /* success launch client */
         struct qimm_layout *layout = data;
 
@@ -179,7 +169,7 @@ void
 qimm_client_project_start(struct qimm_project *project) {
     struct qimm_output *output = project->output;
     if (!output) {
-        qimm_log("client start error: project[%s] no output", project->name);
+        qimm_log("client start error: project (%s) no output", project->name);
         return;
     }
 

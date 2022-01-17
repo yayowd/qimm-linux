@@ -1,5 +1,5 @@
 /* This file is part of qimm project.
- * qimm is a Situational Linux Desktop Based on Wayland.
+ * qimm is a Situational Linux Desktop Based on Weston.
  * Copyright (C) 2021 The qimm Authors.
  *
  * This program is free software: you can redistribute it and/or modify
@@ -46,7 +46,6 @@ qimm_config_project_layout_data(yaml_parser_t *parser, yaml_event_t *event,
 static void
 qimm_config_project_layout_free(void *obj) {
     struct qimm_project_config_layout *layout = obj;
-
     free(layout->name);
     free(layout);
 }
@@ -97,7 +96,6 @@ qimm_config_project_type_data(yaml_parser_t *parser, yaml_event_t *event,
 static void
 qimm_config_project_type_free(void *obj) {
     struct qimm_project_config_type *type = obj;
-
     free(type->name);
     free(type->summary);
     free(type);
@@ -278,15 +276,15 @@ qimm_config_project_get_path(const char *name) {
 }
 
 void *
-qimm_config_project_load(const char *name) {
-    char *path = qimm_config_project_get_path(name);
+qimm_config_project_load(const char *name, const char *config_name) {
+    char *path = qimm_config_project_get_path(config_name);
     if (!path)
         return NULL;
-    qimm_log("project[%s] config with %s", name, path);
+    qimm_log("project (%s) config with %s", name, path);
 
     FILE *fh = fopen(path, "r");
     if (!fh) {
-        qimm_log("project[%s] failed to open config file", name);
+        qimm_log("project (%s) config failed: open file error", name);
         free(path);
         return NULL;
     }
@@ -294,7 +292,8 @@ qimm_config_project_load(const char *name) {
     void *ret = NULL;
     yaml_parser_t parser;
     if (!yaml_parser_initialize(&parser)) {
-        qimm_log("project[%s] failed to initialize yaml parser", name);
+        qimm_log("project (%s) config failed: initialize yaml parser error",
+                 name);
         goto err;
     }
     yaml_parser_set_input_file(&parser, fh);
@@ -314,7 +313,7 @@ qimm_config_project_load(const char *name) {
             ret = qimm_yaml_read_mapping(&parser, &event, &fun);
             if (!ret)
                 goto err_event;
-            qimm_config_project_print(ret);
+            // qimm_config_project_print(ret);
         } else if (event.type == YAML_DOCUMENT_END_EVENT)
             break;
     } while (event.type != YAML_STREAM_END_EVENT);

@@ -6,6 +6,11 @@ themes:
 types:
   - name: background
     summary: show background for each project
+    color: the color for the background (0xAARRGGBB)
+    image: the path for the background image file
+    type: >-
+      determines how the background image is drawn, can be centered,
+      scale, scale-crop or tile (default).
   - name: head
     summary: show project information in top of screen
 layouts:
